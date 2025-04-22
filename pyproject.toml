@@ -1,16 +1,14 @@
 [project]
 name = "restricted"
 version = "0.1.0"
-description = "Add your description here"
+description = "A lightweight Python package for analyzing and securely executing code blocks with AST-based restrictions."
 readme = "README.md"
 authors = [
-    { name = "Bimal Paudel", email = "ibimalp@gmail.com" }
+    { name = "Bimal Paudel" }
 ]
+keywords = ["python", "execution", "restricted", "interpreter", "ast", "exec", "uv"]
 requires-python = ">=3.13"
 dependencies = []
-
-[project.scripts]
-restricted = "restricted:main"
 
 [build-system]
 requires = ["hatchling"]
