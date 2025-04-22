@@ -69,16 +69,20 @@ class Restrictor(ast.NodeVisitor):
 
 
 class Executor:
-    def __init__(self, code, restrictor:Restrictor=None):
+    def __init__(self, code, restrict=True, restrictor:Restrictor=None):
         self.code = code
         self.parser = SyntaxParser()
-        self.restrictor = restrictor if restrictor is not None else Restrictor()
         self.unparsed = None
+        self.restrict = restrict
+        self.restrictor = restrictor if restrictor is not None else Restrictor()
         self._validate()
 
     def _validate(self):
+        """Validates the code block by first parsing into ast node and then visiting with restrictor.
+        If self.restrict=False(Default=True), the entire code block can be executed right after parsing."""
         tree = self.parser.parse_and_validate(self.code)
-        self.restrictor.visit(tree)
+        if self.restrict:
+            self.restrictor.visit(tree)
         self.unparsed = ast.unparse(tree)
 
     def _write_file_path(self):
