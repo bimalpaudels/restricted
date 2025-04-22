@@ -66,3 +66,85 @@ class Restrictor(ast.NodeVisitor):
             if node.id in self._restricted_builtins:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
+
+
+class Executor:
+    def __init__(self, code, restrictor:Restrictor=None):
+        self.code = code
+        self.parser = SyntaxParser()
+        self.restrictor = restrictor if restrictor is not None else Restrictor()
+        self.unparsed = None
+        self._validate()
+
+    def _validate(self):
+        tree = self.parser.parse_and_validate(self.code)
+        self.restrictor.visit(tree)
+        self.unparsed = ast.unparse(tree)
+
+    def _write_file_path(self):
+        sandbox_dir = os.path.join(os.getcwd(), ".sandbox")
+        os.makedirs(sandbox_dir, exist_ok=True)
+
+        script_file_path = os.path.join(sandbox_dir, "script.py")
+        with open(script_file_path, "w") as f:
+            f.write(self.unparsed)
+        return script_file_path
+
+    def direct_execution(self):
+        """
+        Executes the code directly on the system using exec. Useful to test with codes
+        that have no dependencies and are not potentially harmful on execution.
+        :return:
+        """
+        compiled_code = compile(self.code, '<string>', 'exec')
+        exec(compiled_code)
+
+    def subprocess_execution(self):
+        """
+        Writes the code into a file and uses subprocess and uses 'python' command to execute it. Recommended
+        for code without any dependencies and installations. If dependencies have to be installed, use execute_with_uv().
+        :return:
+        """
+        script_file_path = self._write_file_path()
+        try:
+            result = subprocess.run(
+                ["python", script_file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5,
+            )
+            if result.stderr != "":
+                return result.stderr
+            else:
+                return result.stdout
+        except subprocess.TimeoutExpired:
+            return subprocess.TimeoutExpired
+        except Exception as e:
+            raise e
+
+    def execute_with_uv(self):
+        """
+        Writes the code into a file and uses subprocess and 'uv' to execute it. Recommended
+        for code with dependencies and installations because uv creates an isolated environment
+        to execute the file.
+
+        :return: stdout or stderr
+        """
+        script_file_path = self._write_file_path()
+        try:
+            result = subprocess.run(
+                ['uv', 'run', script_file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5,
+            )
+            if result.stderr != "":
+                return result.stderr
+            else:
+                return result.stdout
+        except subprocess.TimeoutExpired:
+            return subprocess.TimeoutExpired
+        except Exception as e:
+            raise e
