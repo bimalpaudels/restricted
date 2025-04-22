@@ -1,6 +1,6 @@
 [project]
 name = "restricted"
-version = "0.1.0"
+version = "0.1.1"
 description = "A lightweight Python package for analyzing and securely executing code blocks with AST-based restrictions."
 readme = "README.md"
 authors = [
