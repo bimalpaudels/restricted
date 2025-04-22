@@ -1,7 +1,7 @@
 import os, ast
 import subprocess
 
-from src.restricted.exceptions import RestrictedBuiltInsError
+from restricted.exceptions import RestrictedBuiltInsError
 
 
 class SyntaxParser:
