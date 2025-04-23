@@ -9,11 +9,17 @@ def execute_restricted(
         restrict: bool = True,
 ):
     """
-    :param code: Python code to execute
-    :param restricted_modules: Modules to block (None for defaults)
-    :param restricted_builtins: Builtin modules to block (None for defaults)
-    :param restrict: Set false if required to execute the code without any restrictions.
-    :return: Result of code execution
+    Parses and optionally validates the given Python code before executing it in a restricted environment.
+
+    This helper function sets up a `Restrictor` with optional custom lists of restricted modules and
+    built-in functions, then uses an `Executor` to validate and run the code. If `restrict` is set to
+    False, the code will be executed without applying any restrictions.
+
+    :param code: Python source code as a string.
+    :param restricted_modules: Optional list of module names to block (defaults will be used if None).
+    :param restricted_builtins: Optional list of built-in function names to block (defaults will be used if None).
+    :param restrict: Flag to enable or disable code restriction checks. Defaults to True.
+    :return: The result of executing the code using the executor's `execute_with_uv` method.
     """
 
     restrictor = Restrictor(restricted_modules=restricted_modules, restricted_builtins=restricted_builtins)
