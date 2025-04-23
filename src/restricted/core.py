@@ -35,7 +35,7 @@ class SyntaxParser:
 class Restrictor(ast.NodeVisitor):
     """
     """
-    DEFAULT_RESTRICTED_MODULES = ["os", "sys", "requests"]
+    DEFAULT_RESTRICTED_MODULES = ["os", "sys", "requests", "asyncio"]
     DEFAULT_RESTRICTED_BUILTINS = ["open",]
 
     def __init__(self, restricted_modules=None, restricted_builtins=None, restrict_modules=True, restrict_builtins=True):
@@ -56,9 +56,19 @@ class Restrictor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
+        """
+        Checks for restricted modules in a node and raises an ImportError. Additional settings
+        compared to visit_Import() above to make sure to restrict the modules that are being imported
+        from.
+        :param node: Node to be visited to check for restricted modules.
+        :raise: ImportError for restricted modules
+        """
         if self._restrict_modules:
-            if node.module in self._restricted_builtins:
+            if node.module in self._restricted_modules:
                 raise ImportError(f"'{node.module}' is not allowed")
+            for alias in node.names:
+                if alias.name in self._restricted_modules:
+                    raise ImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_Name(self, node):
