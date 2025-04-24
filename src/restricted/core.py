@@ -1,7 +1,7 @@
 import os, ast
 import subprocess
 
-from restricted.exceptions import RestrictedBuiltInsError, RestrictedImportError
+from restricted.exceptions import RestrictedBuiltInsError, RestrictedImportError, ScriptExecutionError
 
 
 class SyntaxParser:
@@ -193,15 +193,18 @@ class Executor:
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=5,
+                check=True
             )
-            if result.returncode != 0:
-                raise Exception(result.stderr)
-            else:
-                return result.stdout
-        except subprocess.TimeoutExpired:
-            return subprocess.TimeoutExpired
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            err = e.stderr.splitlines()
+            raise ScriptExecutionError(err[-1])
+
+        except subprocess.TimeoutExpired as e:
+            raise ScriptExecutionError(f"TimeoutExpired: Script took longer than {e.timeout} seconds.")
+
         except Exception as e:
-            raise e
+            raise ScriptExecutionError(f"Unhandled exception: {e}")
 
     def execute_with_uv(self):
         """
@@ -219,12 +222,15 @@ class Executor:
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=5,
+                check=True
             )
-            if result.returncode != 0:
-                raise Exception(result.stderr)
-            else:
-                return result.stdout
-        except subprocess.TimeoutExpired:
-            return subprocess.TimeoutExpired
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            err = e.stderr.splitlines()
+            raise ScriptExecutionError(err[-1])
+
+        except subprocess.TimeoutExpired as e:
+            raise ScriptExecutionError(f"TimeoutExpired: Script took longer than {e.timeout} seconds.")
+
         except Exception as e:
-            raise e
+            raise ScriptExecutionError(f"Unhandled exception: {e}")
