@@ -194,8 +194,8 @@ class Executor:
                 text=True,
                 timeout=5,
             )
-            if result.stderr != "":
-                return result.stderr
+            if result.returncode != 0:
+                raise Exception(result.stderr)
             else:
                 return result.stdout
         except subprocess.TimeoutExpired:
@@ -220,8 +220,8 @@ class Executor:
                 text=True,
                 timeout=5,
             )
-            if result.stderr != "":
-                return result.stderr
+            if result.returncode != 0:
+                raise Exception(result.stderr)
             else:
                 return result.stdout
         except subprocess.TimeoutExpired:
