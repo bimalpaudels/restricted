@@ -1,7 +1,7 @@
 import os, ast
 import subprocess
 
-from restricted.exceptions import RestrictedBuiltInsError
+from restricted.exceptions import RestrictedBuiltInsError, RestrictedImportError
 
 
 class SyntaxParser:
@@ -87,7 +87,7 @@ class Restrictor(ast.NodeVisitor):
         if self._restrict_modules:
             for alias in node.names:
                 if alias.name in self._restricted_modules:
-                    raise ImportError(f"'{alias.name}' is not allowed")
+                    raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
@@ -103,10 +103,10 @@ class Restrictor(ast.NodeVisitor):
         """
         if self._restrict_modules:
             if node.module in self._restricted_modules:
-                raise ImportError(f"'{node.module}' is not allowed")
+                raise RestrictedImportError(f"'{node.module}' is not allowed")
             for alias in node.names:
                 if alias.name in self._restricted_modules:
-                    raise ImportError(f"'{alias.name}' is not allowed")
+                    raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_Name(self, node):
