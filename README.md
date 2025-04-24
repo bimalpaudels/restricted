@@ -3,6 +3,12 @@
 ## Overview
 A Python code execution environment with support for restricting imports, built-ins with AST-based validation. This package provides multiple execution methods, including subprocesses and `uv`, allowing for controlled execution with customizable restrictions on potentially unsafe code.
 
+## Demo
+Live demo using the default settings.
+
+
+[![Demo](https://github.com/user-attachments/assets/9f679859-5afa-49dd-b771-048452a2d7e9)](https://dotpy.bimals.net)
+
 
 ## Installation
 
@@ -77,7 +83,7 @@ executor.direct_execution() or executor.subprocess_execution()
 ...
 ```
 ### Using only the Restrictor
-It's not necessary always use the Executor. Many use cases could need just the validation and not the execution. 
+It's not necessary to always use the Executor. Many use cases could need just the validation and not the execution. 
 The `Restrictor` class can be used on it's own for finer control with execution behavior.
 ```python
 from restricted.core import Restrictor, SyntaxParser
