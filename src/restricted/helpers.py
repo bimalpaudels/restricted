@@ -7,6 +7,7 @@ def execute_restricted(
         modules: Optional[List[str]] = None,
         builtins: Optional[List[str]] = None,
         restrict: bool = True,
+        action: Optional[str] = None,
 ):
     """
     Parses and optionally validates the given Python code before executing it in a restricted environment.
@@ -22,6 +23,6 @@ def execute_restricted(
     :return: The result of executing the code using the executor's `execute_with_uv` method.
     """
 
-    restrictor = Restrictor(modules=modules, builtins=builtins, action="restrict")
+    restrictor = Restrictor(modules=modules, builtins=builtins, action=action)
     executor = Executor(code, restrictor=restrictor, restrict=restrict)
     return executor.execute_with_uv()
