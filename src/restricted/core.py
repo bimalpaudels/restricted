@@ -1,7 +1,13 @@
-import os, ast
+import os
+import ast
 import subprocess
+from typing import Optional
 
-from restricted.exceptions import RestrictedBuiltInsError, RestrictedImportError, ScriptExecutionError
+from restricted.exceptions import (
+    RestrictedBuiltInsError,
+    RestrictedImportError,
+    ScriptExecutionError,
+)
 
 
 class SyntaxParser:
@@ -9,9 +15,10 @@ class SyntaxParser:
     A utility class for parsing Python source code into an abstract syntax tree (AST)
     using Python's built-in `ast` module. Validates the input and raises exceptions for empty input or syntax errors.
     """
+
     def __init__(self):
         """
-         Initializes the parser with empty code and AST tree placeholders.
+        Initializes the parser with empty code and AST tree placeholders.
         """
         self.code = None
         self.tree = None
@@ -22,7 +29,7 @@ class SyntaxParser:
 
         :raises: ValueError: If the code is None or empty.
         """
-        if self.code is None or self.code == '':
+        if self.code is None or self.code == "":
             raise ValueError("Null or/and empty code")
 
     def parse_and_validate(self, code=None):
@@ -38,7 +45,7 @@ class SyntaxParser:
         self.code = code
         self._is_null_or_empty()
         try:
-            self.tree = ast.parse(self.code)
+            self.tree = ast.parse(self.code) # type: ignore
         except SyntaxError as e:
             raise SyntaxError(e.text)
 
@@ -51,15 +58,18 @@ class Restrictor(ast.NodeVisitor):
     in a given Python code snippet. This is designed to walk through the abstract syntax tree (AST) of Python code and raise
     exceptions when restricted modules are imported or when forbidden built-in functions are used.
     """
+
     DEFAULT_RESTRICTED_MODULES = ["os", "sys", "requests"]
-    DEFAULT_RESTRICTED_BUILTINS = ["open",]
+    DEFAULT_RESTRICTED_BUILTINS = [
+        "open",
+    ]
 
     def __init__(
-            self,
-            restricted_modules=None,
-            restricted_builtins=None,
-            restrict_modules=True,
-            restrict_builtins=True
+        self,
+        restricted_modules=None,
+        restricted_builtins=None,
+        restrict_modules=True,
+        restrict_builtins=True,
     ):
         """
         Initializes the Restrictor with optional custom restrictions on modules and built-in functions.
@@ -71,8 +81,16 @@ class Restrictor(ast.NodeVisitor):
         :param restrict_modules: Flag indicating whether to enforce restrictions on module imports.
         :param restrict_builtins: Flag indicating whether to enforce restrictions on built-ins.
         """
-        self._restricted_modules = restricted_modules if restricted_modules is not None else self.DEFAULT_RESTRICTED_MODULES
-        self._restricted_builtins = restricted_builtins if restricted_builtins is not None else self.DEFAULT_RESTRICTED_BUILTINS
+        self._restricted_modules = (
+            restricted_modules
+            if restricted_modules is not None
+            else self.DEFAULT_RESTRICTED_MODULES
+        )
+        self._restricted_builtins = (
+            restricted_builtins
+            if restricted_builtins is not None
+            else self.DEFAULT_RESTRICTED_BUILTINS
+        )
         self._restrict_modules = restrict_modules
         self._restrict_builtins = restrict_builtins
 
@@ -129,7 +147,8 @@ class Executor:
     but using the `Restrictor` independently is also supported. After validation, users can
     implement their own execution logic if desired.
     """
-    def __init__(self, code, restrict=True, restrictor:Restrictor=None):
+
+    def __init__(self, code, restrict=True, restrictor: Optional[Restrictor] = None):
         """
         Initializes the Executor with the provided source code and optional restriction settings.
 
@@ -167,7 +186,7 @@ class Executor:
 
         script_file_path = os.path.join(sandbox_dir, "script.py")
         with open(script_file_path, "w") as f:
-            f.write(self.unparsed)
+            f.write(self.unparsed) # type: ignore
         return script_file_path
 
     def direct_execution(self):
@@ -176,7 +195,7 @@ class Executor:
         that have no dependencies and are not potentially harmful on execution.
         :return:
         """
-        compiled_code = compile(self.code, '<string>', 'exec')
+        compiled_code = compile(self.code, "<string>", "exec")
         exec(compiled_code)
 
     def subprocess_execution(self):
@@ -193,7 +212,7 @@ class Executor:
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=5,
-                check=True
+                check=True,
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
@@ -201,7 +220,9 @@ class Executor:
             raise ScriptExecutionError(err[-1])
 
         except subprocess.TimeoutExpired as e:
-            raise ScriptExecutionError(f"TimeoutExpired: Script took longer than {e.timeout} seconds.")
+            raise ScriptExecutionError(
+                f"TimeoutExpired: Script took longer than {e.timeout} seconds."
+            )
 
         except Exception as e:
             raise ScriptExecutionError(f"Unhandled exception: {e}")
@@ -217,12 +238,12 @@ class Executor:
         script_file_path = self._write_file_path()
         try:
             result = subprocess.run(
-                ['uv', 'run', script_file_path],
+                ["uv", "run", script_file_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=5,
-                check=True
+                check=True,
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
@@ -230,7 +251,9 @@ class Executor:
             raise ScriptExecutionError(err[-1])
 
         except subprocess.TimeoutExpired as e:
-            raise ScriptExecutionError(f"TimeoutExpired: Script took longer than {e.timeout} seconds.")
+            raise ScriptExecutionError(
+                f"TimeoutExpired: Script took longer than {e.timeout} seconds."
+            )
 
         except Exception as e:
             raise ScriptExecutionError(f"Unhandled exception: {e}")
