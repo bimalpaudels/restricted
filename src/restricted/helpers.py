@@ -4,8 +4,8 @@ from typing import Optional, List
 
 def execute_restricted(
         code:str,
-        restricted_modules: Optional[List[str]] = None,
-        restricted_builtins: Optional[List[str]] = None,
+        modules: Optional[List[str]] = None,
+        builtins: Optional[List[str]] = None,
         restrict: bool = True,
 ):
     """
@@ -22,6 +22,6 @@ def execute_restricted(
     :return: The result of executing the code using the executor's `execute_with_uv` method.
     """
 
-    restrictor = Restrictor(restricted_modules=restricted_modules, restricted_builtins=restricted_builtins)
+    restrictor = Restrictor(modules=modules, builtins=builtins, action="restrict")
     executor = Executor(code, restrictor=restrictor, restrict=restrict)
     return executor.execute_with_uv()

@@ -59,17 +59,16 @@ class Restrictor(ast.NodeVisitor):
     exceptions when restricted modules are imported or when forbidden built-in functions are used.
     """
 
-    DEFAULT_RESTRICTED_MODULES = ["os", "sys", "requests"]
-    DEFAULT_RESTRICTED_BUILTINS = [
+    DEFAULT_MODULES = ["os", "sys", "requests"]
+    DEFAULT_BUILTINS = [
         "open",
     ]
 
     def __init__(
         self,
-        restricted_modules=None,
-        restricted_builtins=None,
-        restrict_modules=True,
-        restrict_builtins=True,
+        modules=None,
+        builtins=None,
+        action="restrict",
     ):
         """
         Initializes the Restrictor with optional custom restrictions on modules and built-in functions.
@@ -81,18 +80,17 @@ class Restrictor(ast.NodeVisitor):
         :param restrict_modules: Flag indicating whether to enforce restrictions on module imports.
         :param restrict_builtins: Flag indicating whether to enforce restrictions on built-ins.
         """
-        self._restricted_modules = (
-            restricted_modules
-            if restricted_modules is not None
-            else self.DEFAULT_RESTRICTED_MODULES
+        self._modules = (
+            modules
+            if modules is not None
+            else self.DEFAULT_MODULES
         )
-        self._restricted_builtins = (
-            restricted_builtins
-            if restricted_builtins is not None
-            else self.DEFAULT_RESTRICTED_BUILTINS
+        self._builtins = (
+            builtins
+            if builtins is not None
+            else self.DEFAULT_BUILTINS
         )
-        self._restrict_modules = restrict_modules
-        self._restrict_builtins = restrict_builtins
+        self._action = action
 
     def visit_Import(self, node):
         """
@@ -102,9 +100,9 @@ class Restrictor(ast.NodeVisitor):
         :param node: An `ast.Import` node representing an 'import ...' statement.
         :raises: ImportError: If the module is in the restricted list.
         """
-        if self._restrict_modules:
+        if self._action == "restrict":
             for alias in node.names:
-                if alias.name in self._restricted_modules:
+                if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
@@ -119,11 +117,11 @@ class Restrictor(ast.NodeVisitor):
         :param node: An `ast.ImportFrom` node representing a 'from ... import ...' statement.
         :raises ImportError: If the source module or any imported member is in the restricted list.
         """
-        if self._restrict_modules:
-            if node.module in self._restricted_modules:
+        if self._action == "restrict":
+            if node.module in self._modules:
                 raise RestrictedImportError(f"'{node.module}' is not allowed")
             for alias in node.names:
-                if alias.name in self._restricted_modules:
+                if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
@@ -135,8 +133,8 @@ class Restrictor(ast.NodeVisitor):
         :param node: An `ast.Name` node representing a '...()' expression. For e.g. with open()...
         :raises: ImportError: If the function is in the restricted list.
         """
-        if self._restrict_builtins:
-            if node.id in self._restricted_builtins:
+        if self._action == "restrict":
+            if node.id in self._builtins:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
 
