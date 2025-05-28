@@ -68,7 +68,7 @@ class Restrictor(ast.NodeVisitor):
         self,
         modules=None,
         builtins=None,
-        action="restrict",
+        action=None,
     ):
         """
         Initializes the Restrictor with optional custom restrictions on modules and built-in functions.
@@ -91,6 +91,18 @@ class Restrictor(ast.NodeVisitor):
             else self.DEFAULT_BUILTINS
         )
         self._action = action
+        self._verify_setup()
+
+    def _verify_setup(self):
+        """
+        Verifies that the setup is correct.
+        """
+        if not self._action:
+            raise ValueError("Action is not set. Must be 'restrict' or 'whitelist'.")
+
+        if self._action not in ["restrict", "allow"]:
+            raise ValueError("Invalid action. Must be 'restrict' or 'allow'.")
+        
 
     def visit_Import(self, node):
         """
@@ -103,6 +115,10 @@ class Restrictor(ast.NodeVisitor):
         if self._action == "restrict":
             for alias in node.names:
                 if alias.name in self._modules:
+                    raise RestrictedImportError(f"'{alias.name}' is not allowed")
+        elif self._action == "allow":
+            for alias in node.names:
+                if alias.name not in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
@@ -123,6 +139,12 @@ class Restrictor(ast.NodeVisitor):
             for alias in node.names:
                 if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
+        elif self._action == "allow":
+            if node.module not in self._modules:
+                raise RestrictedImportError(f"'{node.module}' is not allowed")
+            for alias in node.names:
+                if alias.name not in self._modules:
+                    raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_Name(self, node):
@@ -135,6 +157,9 @@ class Restrictor(ast.NodeVisitor):
         """
         if self._action == "restrict":
             if node.id in self._builtins:
+                raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
+        elif self._action == "allow":
+            if node.id not in self._builtins:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
 
