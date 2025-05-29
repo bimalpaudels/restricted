@@ -1,113 +1,156 @@
 ### restricted: Enforcing Restrictions on Python Code Execution
 
 ## Overview
-A Python code execution environment with support for restricting imports, built-ins with AST-based validation. This package provides multiple execution methods, including subprocesses and `uv`, allowing for controlled execution with customizable restrictions on potentially unsafe code.
+
+A lightweight Python package for analyzing and securely executing code blocks with AST-based restrictions. This package provides multiple execution methods, including direct execution, subprocesses, and `uv`, allowing for controlled execution with customizable allow/restrict lists.
 
 ## Demo
+
 Live demo using the default settings.
 
-
 [![Demo](https://github.com/user-attachments/assets/9f679859-5afa-49dd-b771-048452a2d7e9)](https://dotpy.bimals.net)
-
 
 ## Installation
 
 ### pip
+
 ```text
 pip install restricted
 ```
+
 ### uv
+
 ```text
 uv add restricted
 ```
 
 ## Usage
+
 ### With helper function
-The helper function could be used to execute code block the easiest with uv. 
+
+The helper function provides the easiest way to execute code with restrictions.
+
 ```python
 from restricted.helpers import execute_restricted
 
 # A block of code pretending to be malicious.
-code="""
+code = """
 import os
 print(os.getcwd())
 """
 
-print(execute_restricted(code))
+# Restrict specific modules
+result = execute_restricted(code, method="direct", restrict=["os"])
+print(result)
 
-# Shell Output
-ImportError: 'os' is not allowed
+# Output: RestrictedImportError: 'os' is not allowed
 ```
 
-#### Custom restrictions
-You can provide your own restricting modules and built-in functions to restrict.
-```python
-from restricted.helpers import execute_restricted
-...
-custom_restricted_modules = ["os", "sys", "asyncio", 'builtins'] 
-custom_restricted_builtins = ["print", "open", "min", "max"]
+#### Using allow lists
 
-result = execute_restricted(code, restricted_modules=custom_restricted_modules, restricted_builtins=custom_restricted_builtins)
-```
+You can specify exactly what modules/functions are allowed instead of what's restricted.
 
-#### Execute without restriction
-During development, code could be tested without restrictions by passing the `restrict=False` flag to the helper function.
 ```python
 from restricted.helpers import execute_restricted
 
-# A block of code pretending to be malicious.
-code="""
-import os
-print(os.getcwd())
+code = """
+import math
+print(math.sqrt(16))
 """
 
-print(execute_restricted(code, restrict=False))
+# Only allow specific modules
+result = execute_restricted(code, method="direct", allow=["math", "print"])
+print(result)
 
-# Shell Output
-home/foo/projects/somefolder
+# Output: 4.0
 ```
+
+#### Different execution methods
+
+Choose from different execution methods based on your needs:
+
+```python
+from restricted.helpers import execute_restricted
+
+code = """
+print("Hello World")
+"""
+
+# Direct execution (fastest)
+result = execute_restricted(code, method="direct", allow=["print"])
+
+# Subprocess execution (more isolated)
+result = execute_restricted(code, method="subprocess", allow=["print"])
+
+# UV execution (using uv for isolation)
+result = execute_restricted(code, method="uv", allow=["print"])
+```
+
 ### Without helper function
-For more advanced control over the execution process, you can use the Executor directly. This approach allows you to manage both the restriction and the execution method.
+
+For more advanced control over the execution process, you can use the Executor and Restrictor directly.
+
 ```python
 from restricted.core import Executor, Restrictor
-code="""
+
+code = """
 print("Hello World")
 """
-custom_restricted_modules = ["os", "sys", "asyncio", 'builtins'] 
 
-custom_restrictor = Restrictor(restricted_modules=custom_restricted_modules)
-executor = Executor(code, restrictor=custom_restrictor)
+# Create a restrictor with specific restrictions
+restrictor = Restrictor(restrict=["os", "sys", "subprocess"])
+executor = Executor(code, restrictor=restrictor)
 
-# Different execution methods
-executor.direct_execution() or executor.subprocess_execution()
-...
+# Execute with your preferred method
+result = executor.execute(method="direct")
+print(result)
 ```
+
 ### Using only the Restrictor
-It's not necessary to always use the Executor. Many use cases could need just the validation and not the execution. 
-The `Restrictor` class can be used on it's own for finer control with execution behavior.
+
+The `Restrictor` class can be used independently for validation without execution.
+
 ```python
-from restricted.core import Restrictor, SyntaxParser
-code="""
+from restricted.core import Restrictor
+
+code = """
+import os
 print("Hello World")
 """
-tree = SyntaxParser().parse_and_validate(code=code)
 
-# Only restrict certain modules
-custom_restricted_modules = ["os", "sys", "asyncio", 'builtins'] 
-restrictor = Restrictor(restrict_modules=True, restrict_builtins=False, restricted_modules=custom_restricted_modules)
-
-# Only restrict certain built-ins
-custom_restricted_builtins = ["print", "open", "min", "max"]
-restrictor = Restrictor(restrict_modules=False, restrict_builtins=True, restricted_builtins=custom_restricted_builtins)
-
-# Visit the nodes
-restrictor.visit(tree)
+# Only validate, don't execute
+restrictor = Restrictor(restrict=["os"])
+try:
+    validated_code = restrictor.restrict(code)
+    print("Code is safe to execute")
+except Exception as e:
+    print(f"Code validation failed: {e}")
 ```
+
+## API Reference
+
+### Restrictor
+
+- `allow`: Optional list of allowed modules/functions
+- `restrict`: Optional list of restricted modules/functions
+- Only one of `allow` or `restrict` can be provided
+
+### Executor
+
+- `method`: Execution method (`"direct"`, `"subprocess"`, or `"uv"`)
+- Automatically applies restrictions before execution
+
+### Exceptions
+
+- `RestrictedImportError`: Raised when a restricted import is detected
+- `RestrictedBuiltInsError`: Raised when a restricted built-in is used
+- `ScriptExecutionError`: Raised when script execution fails
 
 ## Security Notice
+
 **Caution**: Always ensure that the code you execute is thoroughly reviewed to avoid potential security risks. Malicious or unsafe code can harm the system or access sensitive resources. Consider running code in a controlled or isolated environment to minimize potential damage.
 
 ## Contribution
-Any contributions to improve this project are welcome! If you have suggestions, bug fixes, or new features to propose, 
-feel free to submit a pull request on [GitHub](https://github.com/bimalpaudels/restricted). 
 
+Any contributions to improve this project are welcome! If you have suggestions, bug fixes, or new features to propose,
+feel free to submit a pull request on [GitHub](https://github.com/bimalpaudels/restricted).

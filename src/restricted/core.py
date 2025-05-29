@@ -1,7 +1,7 @@
 import os
 import ast
 import subprocess
-from typing import Optional
+from typing import List, Optional
 
 from restricted.exceptions import (
     RestrictedBuiltInsError,
@@ -10,77 +10,30 @@ from restricted.exceptions import (
 )
 
 
-class SyntaxParser:
-    """
-    A utility class for parsing Python source code into an abstract syntax tree (AST)
-    using Python's built-in `ast` module. Validates the input and raises exceptions for empty input or syntax errors.
-    """
-
-    def __init__(self):
-        """
-        Initializes the parser with empty code and AST tree placeholders.
-        """
-        self.code = None
-        self.tree = None
-
-    def _is_null_or_empty(self):
-        """
-        Checks whether the provided code is None or an empty string.
-
-        :raises ValueError: If the code is None or empty.
-        """
-        if self.code is None or self.code == "":
-            raise ValueError("Null or/and empty code")
-
-    def parse_and_validate(self, code=None):
-        """
-        Parses the given Python code and returns the abstract syntax tree (AST) after validation.
-
-        :param code: A string containing valid Python code to parse. Defaults to None.
-        :return: The parsed AST (abstract syntax tree) object.
-
-        :raises ValueError: If the provided code is None or empty.
-        :raises SyntaxError: If the code contains invalid Python syntax.
-        """
-        self.code = code
-        self._is_null_or_empty()
-        try:
-            self.tree = ast.parse(self.code)  # type: ignore
-        except SyntaxError as e:
-            raise SyntaxError(e.text)
-
-        return self.tree
-
-
 class Restrictor(ast.NodeVisitor):
     """
     AST visitor that enforces restrictions on the use of specific modules and built-in functions
     in a given Python code snippet. This is designed to walk through the abstract syntax tree (AST) of Python code and raise
-    exceptions when restricted modules are imported or when forbidden built-in functions are used, based on the configured action ('restrict' or 'allow').
+    exceptions when restricted modules are imported or when forbidden built-in functions are used.
+    Restrictions are based on whether an 'allow' or 'restrict' list of names (for modules or built-ins)
+    is provided during initialization.
     """
-
-    DEFAULT_MODULES = ["os", "sys", "requests"]
-    DEFAULT_BUILTINS = [
-        "open",
-    ]
 
     def __init__(
         self,
-        modules=None,
-        builtins=None,
-        action=None,
+        allow: Optional[List[str]] = None,
+        restrict: Optional[List[str]] = None,
     ):
         """
-        Initializes the Restrictor with optional custom restrictions on modules and built-in functions and the action to perform.
+        Initializes the Restrictor with either an optional list of allowed names or a list of restricted names.
+        Only one of `allow` or `restrict` can be provided.
 
-        :param modules: Optional list of module names. Used with 'restrict' or 'allow' action. Defaults to `DEFAULT_MODULES` if not provided.
-        :param builtins: Optional list of built-in function names. Used with 'restrict' or 'allow' action. Defaults to `DEFAULT_BUILTINS` if not provided.
-        :param action: The action to perform ('restrict' or 'allow'). Must be provided.
-        :raises ValueError: If the action is not set or is invalid.
+        :param allow: Optional list of names that are allowed. If provided, the action is 'allow'. Defaults to None.
+        :param restrict: Optional list of names that are restricted. If provided, the action is 'restrict'. Defaults to None.
+        :raises ValueError: If neither `allow` nor `restrict` are provided, or if both are provided.
         """
-        self._modules = modules if modules is not None else self.DEFAULT_MODULES
-        self._builtins = builtins if builtins is not None else self.DEFAULT_BUILTINS
-        self._action = action
+        self._allow = allow
+        self._restrict = restrict
         self._verify_setup()
 
     def _verify_setup(self):
@@ -89,11 +42,18 @@ class Restrictor(ast.NodeVisitor):
 
         :raises ValueError: If the action is not set or is invalid.
         """
-        if not self._action:
-            raise ValueError("Action is not set. Must be 'restrict' or 'allow'.")
+        if not self._allow and not self._restrict:
+            raise ValueError("Either allow or restrict must be provided")
 
-        if self._action not in ["restrict", "allow"]:
-            raise ValueError("Invalid action. Must be 'restrict' or 'allow'.")
+        if self._allow and self._restrict:
+            raise ValueError("Only one of allow or restrict can be provided")
+
+        if self._allow:
+            self._action = "allow"
+            self._modules = self._allow
+        elif self._restrict:
+            self._action = "restrict"
+            self._modules = self._restrict
 
     def check_syntax(self, code: Optional[str] = None, return_tree: bool = False):
         """
@@ -173,17 +133,18 @@ class Restrictor(ast.NodeVisitor):
 
     def visit_Name(self, node):
         """
-        Visits a 'Name' AST node and checks against the configured builtin list based on the action.
+        Visits a 'Name' AST node and checks if the name (potentially a built-in function) is allowed or restricted
+        based on the configured action and list.
         Raises RestrictedBuiltInsError if a violation is detected.
 
         :param node: An `ast.Name` node representing a name, potentially a built-in function call.
-        :raises RestrictedBuiltInsError: If the name is not allowed based on the action.
+        :raises RestrictedBuiltInsError: If the name is not allowed or is restricted based on the action.
         """
         if self._action == "restrict":
-            if node.id in self._builtins:
+            if node.id in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         elif self._action == "allow":
-            if node.id not in self._builtins:
+            if node.id not in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
 
@@ -201,7 +162,9 @@ class Executor:
         Initializes the Executor with the provided source code and an optional Restrictor instance.
 
         :param code: A string of Python source code to be processed and executed. Defaults to None.
-        :param restrictor: An optional Restrictor instance. If not provided, a default Restrictor with 'restrict' action and default lists is created.
+        :param restrictor: An optional Restrictor instance. If not provided, a Restrictor must be explicitly created and passed,
+                           as the default initialization requires either `allow` or `restrict` to be set.
+        :raises ValueError: If a default Restrictor is implicitly created (by not providing one) and neither `allow` nor `restrict` are set.
         """
         self.code = code
         self.restrictor = restrictor if restrictor is not None else Restrictor()
