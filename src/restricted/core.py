@@ -10,48 +10,6 @@ from restricted.exceptions import (
 )
 
 
-class SyntaxParser:
-    """
-    A utility class for parsing Python source code into an abstract syntax tree (AST)
-    using Python's built-in `ast` module. Validates the input and raises exceptions for empty input or syntax errors.
-    """
-
-    def __init__(self):
-        """
-        Initializes the parser with empty code and AST tree placeholders.
-        """
-        self.code = None
-        self.tree = None
-
-    def _is_null_or_empty(self):
-        """
-        Checks whether the provided code is None or an empty string.
-
-        :raises ValueError: If the code is None or empty.
-        """
-        if self.code is None or self.code == "":
-            raise ValueError("Null or/and empty code")
-
-    def parse_and_validate(self, code=None):
-        """
-        Parses the given Python code and returns the abstract syntax tree (AST) after validation.
-
-        :param code: A string containing valid Python code to parse. Defaults to None.
-        :return: The parsed AST (abstract syntax tree) object.
-
-        :raises ValueError: If the provided code is None or empty.
-        :raises SyntaxError: If the code contains invalid Python syntax.
-        """
-        self.code = code
-        self._is_null_or_empty()
-        try:
-            self.tree = ast.parse(self.code)  # type: ignore
-        except SyntaxError as e:
-            raise SyntaxError(e.text)
-
-        return self.tree
-
-
 class Restrictor(ast.NodeVisitor):
     """
     AST visitor that enforces restrictions on the use of specific modules and built-in functions
