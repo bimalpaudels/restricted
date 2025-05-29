@@ -8,62 +8,91 @@ from restricted.exceptions import (
     RestrictedImportError,
     ScriptExecutionError,
 )
+from restricted.utils import is_stdlib_module, is_builtin_function
 
 
 class Restrictor(ast.NodeVisitor):
     """
-    AST visitor that enforces restrictions on the use of specific modules and built-in functions
-    in a given Python code snippet. This is designed to walk through the abstract syntax tree (AST) of Python code and raise
-    exceptions when restricted modules are imported or when forbidden built-in functions are used.
-    Restrictions are based on whether an 'allow' or 'restrict' list of names (for modules or built-ins)
-    is provided during initialization.
+    AST visitor that enforces restrictions on Python code by controlling access to modules and built-in functions.
+
+    This class analyzes Python code's Abstract Syntax Tree (AST) and applies either whitelist or blacklist
+    restrictions on imports and built-in function usage. It operates in two modes:
+    - 'whitelist' mode: Only permits explicitly allowed modules/built-ins (whitelist approach)
+    - 'blacklist' mode: Blocks explicitly restricted modules/built-ins (blacklist approach)
+
+    The restrictor validates import statements (both 'import' and 'from...import') and built-in function
+    usage, raising appropriate exceptions when violations are detected.
     """
 
     def __init__(
         self,
-        allow: Optional[List[str]] = None,
-        restrict: Optional[List[str]] = None,
+        whitelist: Optional[List[str]] = None,
+        blacklist: Optional[List[str]] = None,
     ):
         """
-        Initializes the Restrictor with either an optional list of allowed names or a list of restricted names.
-        Only one of `allow` or `restrict` can be provided.
+        Initialize the Restrictor with either a whitelist or blacklist of module/function names.
 
-        :param allow: Optional list of names that are allowed. If provided, the action is 'allow'. Defaults to None.
-        :param restrict: Optional list of names that are restricted. If provided, the action is 'restrict'. Defaults to None.
-        :raises ValueError: If neither `allow` nor `restrict` are provided, or if both are provided.
+        Exactly one of 'whitelist' or 'blacklist' must be provided to define the restriction mode:
+        - If 'whitelist' is provided: Only the specified modules/built-ins are permitted (whitelist mode)
+        - If 'blacklist' is provided: The specified modules/built-ins are blocked (blacklist mode)
+
+        Args:
+            whitelist: List of module and built-in function names that are explicitly allowed.
+                  When provided, all other standard library modules and built-ins are blocked.
+            blacklist: List of module and built-in function names that are explicitly blocked.
+                     When provided, all other modules and built-ins are allowed.
+
+        Raises:
+            ValueError: If neither 'whitelist' nor 'blacklist' is provided, or if both are provided.
         """
-        self._allow = allow
-        self._restrict = restrict
+        self._whitelist = whitelist
+        self._blacklist = blacklist
         self._verify_setup()
 
     def _verify_setup(self):
         """
-        Verifies that the setup is correct, specifically that the action is set and is valid.
+        Validate the initialization parameters and configure the internal restriction mode.
 
-        :raises ValueError: If the action is not set or is invalid.
+        This method ensures that exactly one of 'whitelist' or 'blacklist' was provided during
+        initialization, then sets up the internal '_action' and '_modules' attributes
+        based on the provided configuration.
+
+        Raises:
+            ValueError: If neither 'whitelist' nor 'blacklist' is provided, or if both are provided.
         """
-        if not self._allow and not self._restrict:
-            raise ValueError("Either allow or restrict must be provided")
+        if not self._whitelist and not self._blacklist:
+            raise ValueError("Either whitelist or blacklist must be provided")
 
-        if self._allow and self._restrict:
-            raise ValueError("Only one of allow or restrict can be provided")
+        if self._whitelist and self._blacklist:
+            raise ValueError("Only one of whitelist or blacklist can be provided")
 
-        if self._allow:
-            self._action = "allow"
-            self._modules = self._allow
-        elif self._restrict:
-            self._action = "restrict"
-            self._modules = self._restrict
+        if self._whitelist:
+            self._action = "whitelist"
+            self._modules = self._whitelist
+        elif self._blacklist:
+            self._action = "blacklist"
+            self._modules = self._blacklist
 
     def check_syntax(self, code: Optional[str] = None, return_tree: bool = False):
         """
-        Checks the syntax of the code and optionally returns the AST.
+        Parse and validate the syntax of Python code, optionally returning the AST.
 
-        :param code: The Python code string to check.
-        :param return_tree: If True, returns the AST; otherwise, returns the unparsed code. Defaults to False.
-        :return: The AST or the unparsed code string.
-        :raises ValueError: If the code is None or empty.
-        :raises SyntaxError: If the code contains invalid Python syntax.
+        This method parses the provided code string into an Abstract Syntax Tree (AST)
+        and stores it as an instance attribute. It can either return the parsed AST
+        or the unparsed code string representation.
+
+        Args:
+            code: Python source code string to parse and validate.
+            return_tree: If True, returns the AST Module object; if False, returns
+                        the unparsed string representation of the AST.
+
+        Returns:
+            ast.Module: The parsed AST if return_tree is True.
+            str: The unparsed code string if return_tree is False.
+
+        Raises:
+            ValueError: If code is None or an empty string.
+            SyntaxError: If the code contains invalid Python syntax.
         """
         if code is None or code == "":
             raise ValueError("Null and/or empty code")
@@ -77,14 +106,23 @@ class Restrictor(ast.NodeVisitor):
 
     def restrict(self, code: Optional[str] = None):
         """
-        Applies the configured restrictions to the provided code.
+        Apply the configured restrictions to Python code by analyzing its AST.
 
-        :param code: The Python code string to restrict.
-        :return: The unparsed, restricted code string.
-        :raises ValueError: If the code is None or empty (from check_syntax).
-        :raises SyntaxError: If the code contains invalid Python syntax (from check_syntax).
-        :raises RestrictedImportError: If a restricted module is imported and action is 'restrict', or an unallowed module is imported and action is 'allow'.
-        :raises RestrictedBuiltInsError: If a restricted builtin is used and action is 'restrict', or an unallowed builtin is used and action is 'allow'.
+        This method parses the provided code, walks through its AST using the visitor pattern,
+        and validates all import statements and built-in function usage against the configured
+        restrictions. If any violations are found, appropriate exceptions are raised.
+
+        Args:
+            code: Python source code string to analyze and restrict.
+
+        Returns:
+            str: The unparsed code string representation after successful validation.
+
+        Raises:
+            ValueError: If code is None or empty (propagated from check_syntax).
+            SyntaxError: If the code contains invalid Python syntax (propagated from check_syntax).
+            RestrictedImportError: If an import statement violates the configured restrictions.
+            RestrictedBuiltInsError: If a built-in function usage violates the configured restrictions.
         """
         tree = self.check_syntax(code, return_tree=True)
         if isinstance(tree, ast.Module):
@@ -93,99 +131,150 @@ class Restrictor(ast.NodeVisitor):
 
     def visit_Import(self, node):
         """
-        Visits an 'Import' AST node and checks against the configured module list based on the action.
-        Raises RestrictedImportError if a violation is detected.
+        Validate 'import' statements against the configured restrictions.
 
-        :param node: An `ast.Import` node representing an 'import ...' statement.
-        :raises RestrictedImportError: If the module is not allowed based on the action.
+        This AST visitor method processes 'import module' statements and checks each
+        imported module against the restriction configuration:
+        - In 'blacklist' mode: Raises exception if any imported module is in the blacklist
+        - In 'whitelist' mode: Raises exception if any standard library module is imported
+          that is not in the whitelist
+
+        Args:
+            node: An ast.Import node representing an 'import ...' statement.
+
+        Raises:
+            RestrictedImportError: If any imported module violates the configured restrictions.
         """
-        if self._action == "restrict":
+        if self._action == "blacklist":
             for alias in node.names:
                 if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
-        elif self._action == "allow":
+        elif self._action == "whitelist":
             for alias in node.names:
-                if alias.name not in self._modules:
+                if is_stdlib_module(alias.name) and alias.name not in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node):
         """
-        Visits an 'ImportFrom' AST node and checks against the configured module list based on the action.
-        Raises RestrictedImportError if a violation is detected.
+        Validate 'from...import' statements against the configured restrictions.
 
-        :param node: An `ast.ImportFrom` node representing a 'from ... import ...' statement.
-        :raises RestrictedImportError: If the source module or any imported member is not allowed based on the action.
+        This AST visitor method processes 'from module import name' statements and validates
+        both the source module and imported names against the restriction configuration:
+        - In 'blacklist' mode: Raises exception if the source module or any imported name
+          is in the blacklist
+        - In 'whitelist' mode: Raises exception if the source module or any imported standard
+          library name is not in the whitelist
+
+        Args:
+            node: An ast.ImportFrom node representing a 'from ... import ...' statement.
+
+        Raises:
+            RestrictedImportError: If the source module or any imported name violates
+                                 the configured restrictions.
         """
-        if self._action == "restrict":
+        if self._action == "blacklist":
             if node.module in self._modules:
                 raise RestrictedImportError(f"'{node.module}' is not allowed")
             for alias in node.names:
                 if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
-        elif self._action == "allow":
-            if node.module not in self._modules:
-                raise RestrictedImportError(f"'{node.module}' is not allowed")
-            for alias in node.names:
-                if alias.name not in self._modules:
-                    raise RestrictedImportError(f"'{alias.name}' is not allowed")
+
+        elif self._action == "whitelist":
+            if node.module:
+                if is_stdlib_module(node.module) and node.module not in self._modules:
+                    raise RestrictedImportError(f"'{node.module}' is not allowed")
+                for alias in node.names:
+                    if is_stdlib_module(alias.name) and alias.name not in self._modules:
+                        raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_Name(self, node):
         """
-        Visits a 'Name' AST node and checks if the name (potentially a built-in function) is allowed or restricted
-        based on the configured action and list.
-        Raises RestrictedBuiltInsError if a violation is detected.
+        Validate name references (including built-in functions) against the configured restrictions.
 
-        :param node: An `ast.Name` node representing a name, potentially a built-in function call.
-        :raises RestrictedBuiltInsError: If the name is not allowed or is restricted based on the action.
+        This AST visitor method processes name references in the code and validates
+        built-in function usage against the restriction configuration:
+        - In 'blacklist' mode: Raises exception if any name in the blacklist is referenced
+        - In 'whitelist' mode: Raises exception if any built-in function is referenced
+          that is not in the whitelist
+
+        Args:
+            node: An ast.Name node representing a name reference (variable, function, etc.).
+
+        Raises:
+            RestrictedBuiltInsError: If a built-in function reference violates the
+                                   configured restrictions.
         """
-        if self._action == "restrict":
+        if self._action == "blacklist":
             if node.id in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
-        elif self._action == "allow":
-            if node.id not in self._modules:
+        elif self._action == "whitelist":
+            if is_builtin_function(node.id) and node.id not in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
 
 
 class Executor:
     """
-    This class provides a convenient way to execute restricted code after applying restrictions using the `Restrictor`.
-    Users can also use the `Restrictor` independently and implement their own execution logic.
+    Execute Python code with applied restrictions in various execution environments.
+
+    This class provides a convenient interface for executing Python code after applying
+    restrictions using a Restrictor instance. It supports three execution methods:
+    - Direct execution in the current process
+    - Subprocess execution using the system Python interpreter
+    - UV execution for isolated environments with dependency management
+
+    The Executor automatically validates and restricts code before execution, ensuring
+    that only permitted modules and built-in functions are used.
     """
 
     def __init__(
         self, code: Optional[str] = None, restrictor: Optional[Restrictor] = None
     ):
         """
-        Initializes the Executor with the provided source code and an optional Restrictor instance.
+        Initialize the Executor with optional code and restrictor configuration.
 
-        :param code: A string of Python source code to be processed and executed. Defaults to None.
-        :param restrictor: An optional Restrictor instance. If not provided, a Restrictor must be explicitly created and passed,
-                           as the default initialization requires either `allow` or `restrict` to be set.
-        :raises ValueError: If a default Restrictor is implicitly created (by not providing one) and neither `allow` nor `restrict` are set.
+        If no restrictor is provided, a default Restrictor instance will be created,
+        but this will raise a ValueError since the default Restrictor requires either
+        'whitelist' or 'blacklist' parameters to be specified.
+
+        Args:
+            code: Python source code string to be processed and executed.
+            restrictor: A configured Restrictor instance. If None, attempts to create
+                       a default Restrictor (which will fail without whitelist/blacklist parameters).
+
+        Raises:
+            ValueError: If no restrictor is provided and the default Restrictor creation
+                       fails due to missing whitelist/blacklist parameters, or if code validation
+                       fails during the _validate() call.
         """
         self.code = code
         self.restrictor = restrictor if restrictor is not None else Restrictor()
         self._validate()
 
     def _validate(self):
-        """Validates the code block by first parsing into ast node and then visiting with the configured restrictor.
-        Restrictions are applied here if a restrictor is configured.
+        """
+        Apply restrictions to the stored code using the configured restrictor.
+
+        This method validates and restricts the code if it exists, updating the
+        self.code attribute with the processed (but functionally equivalent) code.
+        The restriction process analyzes the AST and raises exceptions if any
+        violations are found, but does not modify the code structure.
         """
         if self.code is not None:
             self.code = self.restrictor.restrict(self.code)
 
     def _write_file_path(self):
         """
-        Writes the current processed code to a file named 'script.py' inside a '.sandbox' directory
-        in the current working directory.
+        Write the processed code to a temporary file in a sandbox directory.
 
-        This method ensures the sandbox directory exists, writes the code to a file, and returns
-        the full path to the written script.
+        Creates a '.sandbox' directory in the current working directory (if it doesn't exist)
+        and writes the current code to a file named 'script.py' within that directory.
+        This temporary file is used for subprocess and UV execution methods.
 
-        :return: Full file path to the saved script.
+        Returns:
+            str: The absolute file path to the created script file.
         """
         sandbox_dir = os.path.join(os.getcwd(), ".sandbox")
         os.makedirs(sandbox_dir, exist_ok=True)
@@ -197,13 +286,30 @@ class Executor:
 
     def execute(self, method: str, code: Optional[str] = None):
         """
-        Executes the stored or provided code using the specified method.
+        Execute the code using the specified execution method.
 
-        :param method: The execution method. Must be 'direct', 'subprocess', or 'uv'.
-        :param code: Optional Python code string to execute. If provided, it overrides the code provided during initialization.
-        :return: The stdout from subprocess or uv execution, or None for direct execution.
-        :raises ValueError: If no code is provided and no code was initialized, or if the method is invalid.
-        :raises ScriptExecutionError: If an error occurs during subprocess or uv execution.
+        This method supports three execution approaches:
+        - 'direct': Execute code directly in the current Python process using exec()
+        - 'subprocess': Execute code in a separate Python subprocess with timeout protection
+        - 'uv': Execute code using UV for isolated environment with dependency management
+
+        If new code is provided, it will be validated and restricted before execution,
+        overriding any code provided during initialization.
+
+        Args:
+            method: Execution method - must be 'direct', 'subprocess', or 'uv'.
+            code: Optional Python code to execute. If provided, overrides the
+                 initialization code after applying restrictions.
+
+        Returns:
+            str: Standard output from subprocess/uv execution.
+            None: For direct execution (output goes to current process stdout).
+
+        Raises:
+            ValueError: If no code is available (neither provided nor initialized),
+                       or if the method is invalid.
+            ScriptExecutionError: If subprocess or uv execution fails, times out,
+                                 or encounters other execution errors.
         """
         if code is None and self.code is None:
             raise ValueError(
@@ -225,19 +331,35 @@ class Executor:
 
     def _direct_execution(self):
         """
-        Executes the code directly in the current process using `exec`.
-        Suitable for simple codes with no dependencies and low risk.
+        Execute code directly in the current Python process using exec().
+
+        This method compiles the code and executes it directly within the current
+        process context. It's the fastest execution method but provides no isolation
+        from the host environment. Suitable for simple, trusted code without external
+        dependencies or security concerns.
+
+        Note: Output goes directly to the current process stdout/stderr.
         """
         compiled_code = compile(self.code, "<string>", "exec")  # type: ignore
         exec(compiled_code)
 
     def _subprocess_execution(self):
         """
-        Writes the code to a temporary file and executes it using `subprocess.run` with the 'python' command.
-        Recommended for code without external dependencies.
+        Execute code in a separate Python subprocess with timeout protection.
 
-        :return: The standard output of the executed script.
-        :raises ScriptExecutionError: If the subprocess fails or times out.
+        This method writes the code to a temporary file and executes it using
+        subprocess.run with the system Python interpreter. Provides process isolation
+        and timeout protection (5 seconds). Recommended for code without external
+        dependencies that needs isolation from the current process.
+
+        Returns:
+            str: The standard output from the executed script.
+
+        Raises:
+            ScriptExecutionError: If the subprocess returns a non-zero exit code,
+                                 times out after 5 seconds, or encounters other
+                                 execution errors. The error message includes the
+                                 last line of stderr for debugging.
         """
         script_file_path = self._write_file_path()
         try:
@@ -264,11 +386,21 @@ class Executor:
 
     def _execute_with_uv(self):
         """
-        Writes the code to a temporary file and executes it using `uv run`.
-        Recommended for code with external dependencies as `uv` manages an isolated environment.
+        Execute code using UV for isolated environment with dependency management.
 
-        :return: The standard output of the executed script.
-        :raises ScriptExecutionError: If the uv subprocess fails or times out.
+        This method writes the code to a temporary file and executes it using 'uv run',
+        which provides an isolated Python environment with automatic dependency management.
+        UV can handle external dependencies and provides better isolation than subprocess
+        execution. Includes timeout protection (5 seconds).
+
+        Returns:
+            str: The standard output from the executed script.
+
+        Raises:
+            ScriptExecutionError: If the UV subprocess returns a non-zero exit code,
+                                 times out after 5 seconds, or encounters other
+                                 execution errors. The error message includes the
+                                 last line of stderr for debugging.
         """
         script_file_path = self._write_file_path()
         try:
