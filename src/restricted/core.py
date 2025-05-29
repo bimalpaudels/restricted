@@ -30,7 +30,7 @@ class Restrictor(ast.NodeVisitor):
         blacklist: Optional[List[str]] = None,
     ):
         """
-        Initialize the Restrictor with either an whitelist or blacklist of module/function names.
+        Initialize the Restrictor with either a whitelist or blacklist of module/function names.
 
         Exactly one of 'whitelist' or 'blacklist' must be provided to define the restriction mode:
         - If 'whitelist' is provided: Only the specified modules/built-ins are permitted (whitelist mode)
