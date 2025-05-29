@@ -8,6 +8,7 @@ from restricted.exceptions import (
     RestrictedImportError,
     ScriptExecutionError,
 )
+from restricted.utils import is_stdlib_module, is_builtin_function
 
 
 class Restrictor(ast.NodeVisitor):
@@ -105,7 +106,7 @@ class Restrictor(ast.NodeVisitor):
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
         elif self._action == "allow":
             for alias in node.names:
-                if alias.name not in self._modules:
+                if is_stdlib_module(alias.name) and alias.name not in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
@@ -123,12 +124,14 @@ class Restrictor(ast.NodeVisitor):
             for alias in node.names:
                 if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
+
         elif self._action == "allow":
-            if node.module not in self._modules:
-                raise RestrictedImportError(f"'{node.module}' is not allowed")
-            for alias in node.names:
-                if alias.name not in self._modules:
-                    raise RestrictedImportError(f"'{alias.name}' is not allowed")
+            if node.module:
+                if is_stdlib_module(node.module) and node.module not in self._modules:
+                    raise RestrictedImportError(f"'{node.module}' is not allowed")
+                for alias in node.names:
+                    if is_stdlib_module(alias.name) and alias.name not in self._modules:
+                        raise RestrictedImportError(f"'{alias.name}' is not allowed")
         self.generic_visit(node)
 
     def visit_Name(self, node):
@@ -144,7 +147,7 @@ class Restrictor(ast.NodeVisitor):
             if node.id in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         elif self._action == "allow":
-            if node.id not in self._modules:
+            if is_builtin_function(node.id) and node.id not in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
 
