@@ -10,17 +10,21 @@ def execute_restricted(
     action: Optional[str] = None,
 ):
     """
-    Parses and optionally validates the given Python code before executing it in a restricted environment.
+    Executes the given Python code in a restricted environment after applying restrictions.
 
-    This helper function sets up a `Restrictor` with optional custom lists of restricted modules and
-    built-in functions, then uses an `Executor` to validate and run the code. If `restrict` is set to
-    False, the code will be executed without applying any restrictions.
+    This helper function creates a `Restrictor` with the specified modules, builtins, and action,
+    then uses an `Executor` to process and run the code using the given method.
 
     :param code: Python source code as a string.
-    :param restricted_modules: Optional list of module names to block (defaults will be used if None).
-    :param restricted_builtins: Optional list of built-in function names to block (defaults will be used if None).
-    :param restrict: Flag to enable or disable code restriction checks. Defaults to True.
-    :return: The result of executing the code using the executor's `execute_with_uv` method.
+    :param method: The execution method for the Executor ('direct', 'subprocess', or 'uv').
+    :param modules: Optional list of module names to restrict or allow based on the action. Defaults to `Restrictor.DEFAULT_MODULES` if None.
+    :param builtins: Optional list of built-in function names to restrict or allow based on the action. Defaults to `Restrictor.DEFAULT_BUILTINS` if None.
+    :param action: The restriction action to apply ('restrict' or 'allow'). If None, the default Restrictor behavior will be used (action='restrict', default lists).
+    :return: The result of executing the code.
+    :raises ValueError: If the method is invalid or if no code is provided to the executor.
+    :raises RestrictedImportError: If a restricted import is detected.
+    :raises RestrictedBuiltInsError: If a restricted built-in is used.
+    :raises ScriptExecutionError: If an error occurs during script execution.
     """
 
     restrictor = Restrictor(modules=modules, builtins=builtins, action=action)
