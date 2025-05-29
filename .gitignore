@@ -10,3 +10,7 @@ wheels/
 .venv
 .idea/
 .DS_Store
+
+# Sandbox
+.sandbox/
+test.py

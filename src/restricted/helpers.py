@@ -24,4 +24,4 @@ def execute_restricted(
 
     restrictor = Restrictor(modules=modules, builtins=builtins, action=action)
     executor = Executor(code, restrictor=restrictor)
-    return executor._execute_with_uv()
+    return executor.execute(method="uv")

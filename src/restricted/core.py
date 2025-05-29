@@ -238,9 +238,9 @@ class Executor:
         if method == "direct":
             self._direct_execution()
         elif method == "subprocess":
-            self._subprocess_execution()
+            return self._subprocess_execution()
         elif method == "uv":
-            self._execute_with_uv()
+            return self._execute_with_uv()
 
     def _direct_execution(self):
         """
