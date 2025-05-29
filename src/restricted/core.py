@@ -26,52 +26,52 @@ class Restrictor(ast.NodeVisitor):
 
     def __init__(
         self,
-        allow: Optional[List[str]] = None,
-        restrict: Optional[List[str]] = None,
+        whitelist: Optional[List[str]] = None,
+        blacklist: Optional[List[str]] = None,
     ):
         """
         Initialize the Restrictor with either an allowlist or blocklist of module/function names.
 
-        Exactly one of 'allow' or 'restrict' must be provided to define the restriction mode:
-        - If 'allow' is provided: Only the specified modules/built-ins are permitted (allowlist mode)
-        - If 'restrict' is provided: The specified modules/built-ins are blocked (blocklist mode)
+        Exactly one of 'whitelist' or 'blacklist' must be provided to define the restriction mode:
+        - If 'whitelist' is provided: Only the specified modules/built-ins are permitted (allowlist mode)
+        - If 'blacklist' is provided: The specified modules/built-ins are blocked (blocklist mode)
 
         Args:
-            allow: List of module and built-in function names that are explicitly allowed.
+            whitelist: List of module and built-in function names that are explicitly allowed.
                   When provided, all other standard library modules and built-ins are blocked.
-            restrict: List of module and built-in function names that are explicitly blocked.
+            blacklist: List of module and built-in function names that are explicitly blocked.
                      When provided, all other modules and built-ins are allowed.
 
         Raises:
-            ValueError: If neither 'allow' nor 'restrict' is provided, or if both are provided.
+            ValueError: If neither 'whitelist' nor 'blacklist' is provided, or if both are provided.
         """
-        self._allow = allow
-        self._restrict = restrict
+        self._whitelist = whitelist
+        self._blacklist = blacklist
         self._verify_setup()
 
     def _verify_setup(self):
         """
         Validate the initialization parameters and configure the internal restriction mode.
 
-        This method ensures that exactly one of 'allow' or 'restrict' was provided during
+        This method ensures that exactly one of 'whitelist' or 'blacklist' was provided during
         initialization, then sets up the internal '_action' and '_modules' attributes
         based on the provided configuration.
 
         Raises:
-            ValueError: If neither 'allow' nor 'restrict' is provided, or if both are provided.
+            ValueError: If neither 'whitelist' nor 'blacklist' is provided, or if both are provided.
         """
-        if not self._allow and not self._restrict:
-            raise ValueError("Either allow or restrict must be provided")
+        if not self._whitelist and not self._blacklist:
+            raise ValueError("Either whitelist or blacklist must be provided")
 
-        if self._allow and self._restrict:
-            raise ValueError("Only one of allow or restrict can be provided")
+        if self._whitelist and self._blacklist:
+            raise ValueError("Only one of whitelist or blacklist can be provided")
 
-        if self._allow:
-            self._action = "allow"
-            self._modules = self._allow
-        elif self._restrict:
-            self._action = "restrict"
-            self._modules = self._restrict
+        if self._whitelist:
+            self._action = "whitelist"
+            self._modules = self._whitelist
+        elif self._blacklist:
+            self._action = "blacklist"
+            self._modules = self._blacklist
 
     def check_syntax(self, code: Optional[str] = None, return_tree: bool = False):
         """
@@ -135,9 +135,9 @@ class Restrictor(ast.NodeVisitor):
 
         This AST visitor method processes 'import module' statements and checks each
         imported module against the restriction configuration:
-        - In 'restrict' mode: Raises exception if any imported module is in the blocklist
-        - In 'allow' mode: Raises exception if any standard library module is imported
-          that is not in the allowlist
+        - In 'blacklist' mode: Raises exception if any imported module is in the blacklist
+        - In 'whitelist' mode: Raises exception if any standard library module is imported
+          that is not in the whitelist
 
         Args:
             node: An ast.Import node representing an 'import ...' statement.
@@ -145,11 +145,11 @@ class Restrictor(ast.NodeVisitor):
         Raises:
             RestrictedImportError: If any imported module violates the configured restrictions.
         """
-        if self._action == "restrict":
+        if self._action == "blacklist":
             for alias in node.names:
                 if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
-        elif self._action == "allow":
+        elif self._action == "whitelist":
             for alias in node.names:
                 if is_stdlib_module(alias.name) and alias.name not in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
@@ -161,10 +161,10 @@ class Restrictor(ast.NodeVisitor):
 
         This AST visitor method processes 'from module import name' statements and validates
         both the source module and imported names against the restriction configuration:
-        - In 'restrict' mode: Raises exception if the source module or any imported name
-          is in the blocklist
-        - In 'allow' mode: Raises exception if the source module or any imported standard
-          library name is not in the allowlist
+        - In 'blacklist' mode: Raises exception if the source module or any imported name
+          is in the blacklist
+        - In 'whitelist' mode: Raises exception if the source module or any imported standard
+          library name is not in the whitelist
 
         Args:
             node: An ast.ImportFrom node representing a 'from ... import ...' statement.
@@ -173,14 +173,14 @@ class Restrictor(ast.NodeVisitor):
             RestrictedImportError: If the source module or any imported name violates
                                  the configured restrictions.
         """
-        if self._action == "restrict":
+        if self._action == "blacklist":
             if node.module in self._modules:
                 raise RestrictedImportError(f"'{node.module}' is not allowed")
             for alias in node.names:
                 if alias.name in self._modules:
                     raise RestrictedImportError(f"'{alias.name}' is not allowed")
 
-        elif self._action == "allow":
+        elif self._action == "whitelist":
             if node.module:
                 if is_stdlib_module(node.module) and node.module not in self._modules:
                     raise RestrictedImportError(f"'{node.module}' is not allowed")
@@ -195,9 +195,9 @@ class Restrictor(ast.NodeVisitor):
 
         This AST visitor method processes name references in the code and validates
         built-in function usage against the restriction configuration:
-        - In 'restrict' mode: Raises exception if any name in the blocklist is referenced
-        - In 'allow' mode: Raises exception if any built-in function is referenced
-          that is not in the allowlist
+        - In 'blacklist' mode: Raises exception if any name in the blacklist is referenced
+        - In 'whitelist' mode: Raises exception if any built-in function is referenced
+          that is not in the whitelist
 
         Args:
             node: An ast.Name node representing a name reference (variable, function, etc.).
@@ -206,10 +206,10 @@ class Restrictor(ast.NodeVisitor):
             RestrictedBuiltInsError: If a built-in function reference violates the
                                    configured restrictions.
         """
-        if self._action == "restrict":
+        if self._action == "blacklist":
             if node.id in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
-        elif self._action == "allow":
+        elif self._action == "whitelist":
             if is_builtin_function(node.id) and node.id not in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
@@ -237,16 +237,16 @@ class Executor:
 
         If no restrictor is provided, a default Restrictor instance will be created,
         but this will raise a ValueError since the default Restrictor requires either
-        'allow' or 'restrict' parameters to be specified.
+        'whitelist' or 'blacklist' parameters to be specified.
 
         Args:
             code: Python source code string to be processed and executed.
             restrictor: A configured Restrictor instance. If None, attempts to create
-                       a default Restrictor (which will fail without allow/restrict parameters).
+                       a default Restrictor (which will fail without whitelist/blacklist parameters).
 
         Raises:
             ValueError: If no restrictor is provided and the default Restrictor creation
-                       fails due to missing allow/restrict parameters, or if code validation
+                       fails due to missing whitelist/blacklist parameters, or if code validation
                        fails during the _validate() call.
         """
         self.code = code
