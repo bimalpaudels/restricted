@@ -2,7 +2,7 @@
 
 ## Overview
 
-A lightweight Python package for analyzing and securely executing code blocks with AST-based restrictions. This package provides multiple execution methods, including direct execution, subprocesses, and `uv`, allowing for controlled execution with customizable allow/restrict lists.
+A lightweight Python package for analyzing and securely executing code blocks with AST-based restrictions. This package provides multiple execution methods, including direct execution, subprocesses, and `uv`, allowing for controlled execution with customizable whitelist/blacklist lists.
 
 ## Demo
 
@@ -40,13 +40,13 @@ print(os.getcwd())
 """
 
 # Restrict specific modules
-result = execute_restricted(code, method="direct", restrict=["os"])
+result = execute_restricted(code, method="direct", blacklist=["os"])
 print(result)
 
 # Output: RestrictedImportError: 'os' is not allowed
 ```
 
-#### Using allow lists
+#### Using whitelist
 
 You can specify exactly what modules/functions are allowed instead of what's restricted.
 
@@ -59,7 +59,7 @@ print(math.sqrt(16))
 """
 
 # Only allow specific modules
-result = execute_restricted(code, method="direct", allow=["math", "print"])
+result = execute_restricted(code, method="direct", whitelist=["math", "print"])
 print(result)
 
 # Output: 4.0
@@ -77,13 +77,13 @@ print("Hello World")
 """
 
 # Direct execution (fastest)
-result = execute_restricted(code, method="direct", allow=["print"])
+result = execute_restricted(code, method="direct", whitelist=["print"])
 
 # Subprocess execution (more isolated)
-result = execute_restricted(code, method="subprocess", allow=["print"])
+result = execute_restricted(code, method="subprocess", whitelist=["print"])
 
 # UV execution (using uv for isolation)
-result = execute_restricted(code, method="uv", allow=["print"])
+result = execute_restricted(code, method="uv", whitelist=["print"])
 ```
 
 ### Without helper function
@@ -98,7 +98,7 @@ print("Hello World")
 """
 
 # Create a restrictor with specific restrictions
-restrictor = Restrictor(restrict=["os", "sys", "subprocess"])
+restrictor = Restrictor(blacklist=["os", "sys", "subprocess"])
 executor = Executor(code, restrictor=restrictor)
 
 # Execute with your preferred method
@@ -119,7 +119,7 @@ print("Hello World")
 """
 
 # Only validate, don't execute
-restrictor = Restrictor(restrict=["os"])
+restrictor = Restrictor(blacklist=["os"])
 try:
     validated_code = restrictor.restrict(code)
     print("Code is safe to execute")
@@ -131,9 +131,9 @@ except Exception as e:
 
 ### Restrictor
 
-- `allow`: Optional list of allowed modules/functions
-- `restrict`: Optional list of restricted modules/functions
-- Only one of `allow` or `restrict` can be provided
+- `whitelist`: Optional list of allowed modules/functions
+- `blacklist`: Optional list of restricted modules/functions
+- Only one of `whitelist` or `blacklist` can be provided
 
 ### Executor
 

@@ -15,10 +15,10 @@ class Restrictor(ast.NodeVisitor):
     """
     AST visitor that enforces restrictions on Python code by controlling access to modules and built-in functions.
 
-    This class analyzes Python code's Abstract Syntax Tree (AST) and applies either allowlist or blocklist
+    This class analyzes Python code's Abstract Syntax Tree (AST) and applies either whitelist or blacklist
     restrictions on imports and built-in function usage. It operates in two modes:
-    - 'allow' mode: Only permits explicitly allowed modules/built-ins (allowlist approach)
-    - 'restrict' mode: Blocks explicitly restricted modules/built-ins (blocklist approach)
+    - 'whitelist' mode: Only permits explicitly allowed modules/built-ins (whitelist approach)
+    - 'blacklist' mode: Blocks explicitly restricted modules/built-ins (blacklist approach)
 
     The restrictor validates import statements (both 'import' and 'from...import') and built-in function
     usage, raising appropriate exceptions when violations are detected.
@@ -30,11 +30,11 @@ class Restrictor(ast.NodeVisitor):
         blacklist: Optional[List[str]] = None,
     ):
         """
-        Initialize the Restrictor with either an allowlist or blocklist of module/function names.
+        Initialize the Restrictor with either an whitelist or blacklist of module/function names.
 
         Exactly one of 'whitelist' or 'blacklist' must be provided to define the restriction mode:
-        - If 'whitelist' is provided: Only the specified modules/built-ins are permitted (allowlist mode)
-        - If 'blacklist' is provided: The specified modules/built-ins are blocked (blocklist mode)
+        - If 'whitelist' is provided: Only the specified modules/built-ins are permitted (whitelist mode)
+        - If 'blacklist' is provided: The specified modules/built-ins are blocked (blacklist mode)
 
         Args:
             whitelist: List of module and built-in function names that are explicitly allowed.
