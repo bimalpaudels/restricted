@@ -9,7 +9,7 @@ def execute_restricted(
     blacklist: Optional[List[str]] = None,
 ):
     """
-    Executes the given Python code in a restricted environment after applying restrictions using either an whitelist or a blacklist.
+    Executes the given Python code in a restricted environment after applying restrictions using either a whitelist or a blacklist.
 
     This helper function creates a `Restrictor` with the specified whitelist or blacklist,
     then uses an `Executor` to process and run the code using the given method.
