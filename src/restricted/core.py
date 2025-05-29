@@ -185,7 +185,9 @@ class Executor:
     implement their own execution logic if desired.
     """
 
-    def __init__(self, code, restrict=True, restrictor: Optional[Restrictor] = None):
+    def __init__(
+        self, code: Optional[str] = None, restrictor: Optional[Restrictor] = None
+    ):
         """
         Initializes the Executor with the provided source code and optional restriction settings.
 
@@ -194,19 +196,14 @@ class Executor:
         :param restrictor: An optional Restrictor instance. If not provided, a default Restrictor is created.
         """
         self.code = code
-        self.parser = SyntaxParser()
-        self.unparsed = None
-        self.restrict = restrict
         self.restrictor = restrictor if restrictor is not None else Restrictor()
         self._validate()
 
     def _validate(self):
         """Validates the code block by first parsing into ast node and then visiting with restrictor.
         If self.restrict=False(Default=True), the entire restriction can be skipped after parsing."""
-        tree = self.parser.parse_and_validate(self.code)
-        if self.restrict:
-            self.restrictor.visit(tree)
-        self.unparsed = ast.unparse(tree)
+        if self.code is not None:
+            self.code = self.restrictor.restrict(self.code)
 
     def _write_file_path(self):
         """
@@ -223,19 +220,38 @@ class Executor:
 
         script_file_path = os.path.join(sandbox_dir, "script.py")
         with open(script_file_path, "w") as f:
-            f.write(self.unparsed)  # type: ignore
+            f.write(self.code)  # type: ignore
         return script_file_path
 
-    def direct_execution(self):
+    def execute(self, code: Optional[str] = None, method: str = "direct"):
+        if code is None and self.code is None:
+            raise ValueError(
+                "Code needs to be provided, either during initialization or when executing."
+            )
+
+        if code is not None:  # If code is provided, override the code from init
+            self.code = self.restrictor.restrict(code)
+
+        if method not in ["direct", "subprocess", "uv"]:
+            raise ValueError("Invalid method. Must be 'direct', 'subprocess', or 'uv'.")
+
+        if method == "direct":
+            self._direct_execution()
+        elif method == "subprocess":
+            self._subprocess_execution()
+        elif method == "uv":
+            self._execute_with_uv()
+
+    def _direct_execution(self):
         """
         Executes the code directly on the system using exec. Useful to test with codes
         that have no dependencies and are not potentially harmful on execution.
         :return:
         """
-        compiled_code = compile(self.code, "<string>", "exec")
+        compiled_code = compile(self.code, "<string>", "exec")  # type: ignore
         exec(compiled_code)
 
-    def subprocess_execution(self):
+    def _subprocess_execution(self):
         """
         Writes the code into a file and uses subprocess and uses 'python' command to execute it. Recommended
         for code without any dependencies and installations. If dependencies have to be installed, use execute_with_uv().
@@ -264,7 +280,7 @@ class Executor:
         except Exception as e:
             raise ScriptExecutionError(f"Unhandled exception: {e}")
 
-    def execute_with_uv(self):
+    def _execute_with_uv(self):
         """
         Writes the code into a file and uses subprocess and 'uv' to execute it. Recommended
         for code with dependencies and installations because uv creates an isolated environment

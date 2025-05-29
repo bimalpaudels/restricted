@@ -6,7 +6,6 @@ def execute_restricted(
         code:str,
         modules: Optional[List[str]] = None,
         builtins: Optional[List[str]] = None,
-        restrict: bool = True,
         action: Optional[str] = None,
 ):
     """
@@ -24,5 +23,5 @@ def execute_restricted(
     """
 
     restrictor = Restrictor(modules=modules, builtins=builtins, action=action)
-    executor = Executor(code, restrictor=restrictor, restrict=restrict)
-    return executor.execute_with_uv()
+    executor = Executor(code, restrictor=restrictor)
+    return executor._execute_with_uv()
