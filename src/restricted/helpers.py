@@ -5,9 +5,8 @@ from typing import Optional, List
 def execute_restricted(
     code: str,
     method: str,
-    modules: Optional[List[str]] = None,
-    builtins: Optional[List[str]] = None,
-    action: Optional[str] = None,
+    allow: Optional[List[str]] = None,
+    restrict: Optional[List[str]] = None,
 ):
     """
     Executes the given Python code in a restricted environment after applying restrictions.
@@ -27,6 +26,6 @@ def execute_restricted(
     :raises ScriptExecutionError: If an error occurs during script execution.
     """
 
-    restrictor = Restrictor(modules=modules, builtins=builtins, action=action)
+    restrictor = Restrictor(allow=allow, restrict=restrict)
     executor = Executor(code, restrictor=restrictor)
     return executor.execute(method=method)
