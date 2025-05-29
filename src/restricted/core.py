@@ -109,6 +109,15 @@ class Restrictor(ast.NodeVisitor):
             return self.tree
         return ast.unparse(self.tree)
 
+    def restrict(self, code: Optional[str] = None):
+        """
+        Restricts the code.
+        """
+        tree = self.check_syntax(code, return_tree=True)
+        if isinstance(tree, ast.Module):
+            self.visit(tree)
+            return ast.unparse(tree)
+
     def visit_Import(self, node):
         """
         Visits an 'Import' AST node and checks whether the module is in the list of restricted modules.
