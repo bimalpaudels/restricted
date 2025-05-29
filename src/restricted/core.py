@@ -56,7 +56,9 @@ class Restrictor(ast.NodeVisitor):
     """
     AST visitor that enforces restrictions on the use of specific modules and built-in functions
     in a given Python code snippet. This is designed to walk through the abstract syntax tree (AST) of Python code and raise
-    exceptions when restricted modules are imported or when forbidden built-in functions are used, based on the configured action ('restrict' or 'allow').
+    exceptions when restricted modules are imported or when forbidden built-in functions are used.
+    Restrictions are based on whether an 'allow' or 'restrict' list of names (for modules or built-ins)
+    is provided during initialization.
     """
 
     def __init__(
@@ -65,12 +67,12 @@ class Restrictor(ast.NodeVisitor):
         restrict: Optional[List[str]] = None,
     ):
         """
-        Initializes the Restrictor with optional custom restrictions on modules and built-in functions and the action to perform.
+        Initializes the Restrictor with either an optional list of allowed names or a list of restricted names.
+        Only one of `allow` or `restrict` can be provided.
 
-        :param modules: Optional list of module names. Used with 'restrict' or 'allow' action. Defaults to `DEFAULT_MODULES` if not provided.
-        :param builtins: Optional list of built-in function names. Used with 'restrict' or 'allow' action. Defaults to `DEFAULT_BUILTINS` if not provided.
-        :param action: The action to perform ('restrict' or 'allow'). Must be provided.
-        :raises ValueError: If the action is not set or is invalid.
+        :param allow: Optional list of names that are allowed. If provided, the action is 'allow'. Defaults to None.
+        :param restrict: Optional list of names that are restricted. If provided, the action is 'restrict'. Defaults to None.
+        :raises ValueError: If neither `allow` nor `restrict` are provided, or if both are provided.
         """
         self._allow = allow
         self._restrict = restrict
@@ -173,11 +175,12 @@ class Restrictor(ast.NodeVisitor):
 
     def visit_Name(self, node):
         """
-        Visits a 'Name' AST node and checks against the configured builtin list based on the action.
+        Visits a 'Name' AST node and checks if the name (potentially a built-in function) is allowed or restricted
+        based on the configured action and list.
         Raises RestrictedBuiltInsError if a violation is detected.
 
         :param node: An `ast.Name` node representing a name, potentially a built-in function call.
-        :raises RestrictedBuiltInsError: If the name is not allowed based on the action.
+        :raises RestrictedBuiltInsError: If the name is not allowed or is restricted based on the action.
         """
         if self._action == "restrict":
             if node.id in self._modules:
@@ -201,7 +204,9 @@ class Executor:
         Initializes the Executor with the provided source code and an optional Restrictor instance.
 
         :param code: A string of Python source code to be processed and executed. Defaults to None.
-        :param restrictor: An optional Restrictor instance. If not provided, a default Restrictor with 'restrict' action and default lists is created.
+        :param restrictor: An optional Restrictor instance. If not provided, a Restrictor must be explicitly created and passed,
+                           as the default initialization requires either `allow` or `restrict` to be set.
+        :raises ValueError: If a default Restrictor is implicitly created (by not providing one) and neither `allow` nor `restrict` are set.
         """
         self.code = code
         self.restrictor = restrictor if restrictor is not None else Restrictor()
