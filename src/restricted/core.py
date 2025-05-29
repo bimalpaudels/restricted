@@ -45,7 +45,7 @@ class SyntaxParser:
         self.code = code
         self._is_null_or_empty()
         try:
-            self.tree = ast.parse(self.code) # type: ignore
+            self.tree = ast.parse(self.code)  # type: ignore
         except SyntaxError as e:
             raise SyntaxError(e.text)
 
@@ -80,16 +80,8 @@ class Restrictor(ast.NodeVisitor):
         :param restrict_modules: Flag indicating whether to enforce restrictions on module imports.
         :param restrict_builtins: Flag indicating whether to enforce restrictions on built-ins.
         """
-        self._modules = (
-            modules
-            if modules is not None
-            else self.DEFAULT_MODULES
-        )
-        self._builtins = (
-            builtins
-            if builtins is not None
-            else self.DEFAULT_BUILTINS
-        )
+        self._modules = modules if modules is not None else self.DEFAULT_MODULES
+        self._builtins = builtins if builtins is not None else self.DEFAULT_BUILTINS
         self._action = action
         self._verify_setup()
 
@@ -102,7 +94,20 @@ class Restrictor(ast.NodeVisitor):
 
         if self._action not in ["restrict", "allow"]:
             raise ValueError("Invalid action. Must be 'restrict' or 'allow'.")
-        
+
+    def check_syntax(self, code: Optional[str] = None, return_tree: bool = False):
+        """
+        Checks the syntax of the code.
+        """
+        if code is None or code == "":
+            raise ValueError("Null and/or empty code")
+        try:
+            self.tree = ast.parse(code)
+        except SyntaxError as e:
+            raise SyntaxError(e.text)
+        if return_tree:
+            return self.tree
+        return ast.unparse(self.tree)
 
     def visit_Import(self, node):
         """
@@ -209,7 +214,7 @@ class Executor:
 
         script_file_path = os.path.join(sandbox_dir, "script.py")
         with open(script_file_path, "w") as f:
-            f.write(self.unparsed) # type: ignore
+            f.write(self.unparsed)  # type: ignore
         return script_file_path
 
     def direct_execution(self):
