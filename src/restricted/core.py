@@ -1,7 +1,7 @@
 import os
 import ast
 import subprocess
-from typing import Optional
+from typing import List, Optional
 
 from restricted.exceptions import (
     RestrictedBuiltInsError,
@@ -59,16 +59,10 @@ class Restrictor(ast.NodeVisitor):
     exceptions when restricted modules are imported or when forbidden built-in functions are used, based on the configured action ('restrict' or 'allow').
     """
 
-    DEFAULT_MODULES = ["os", "sys", "requests"]
-    DEFAULT_BUILTINS = [
-        "open",
-    ]
-
     def __init__(
         self,
-        modules=None,
-        builtins=None,
-        action=None,
+        allow: Optional[List[str]] = None,
+        restrict: Optional[List[str]] = None,
     ):
         """
         Initializes the Restrictor with optional custom restrictions on modules and built-in functions and the action to perform.
@@ -78,9 +72,8 @@ class Restrictor(ast.NodeVisitor):
         :param action: The action to perform ('restrict' or 'allow'). Must be provided.
         :raises ValueError: If the action is not set or is invalid.
         """
-        self._modules = modules if modules is not None else self.DEFAULT_MODULES
-        self._builtins = builtins if builtins is not None else self.DEFAULT_BUILTINS
-        self._action = action
+        self._allow = allow
+        self._restrict = restrict
         self._verify_setup()
 
     def _verify_setup(self):
@@ -89,11 +82,18 @@ class Restrictor(ast.NodeVisitor):
 
         :raises ValueError: If the action is not set or is invalid.
         """
-        if not self._action:
-            raise ValueError("Action is not set. Must be 'restrict' or 'allow'.")
+        if not self._allow and not self._restrict:
+            raise ValueError("Either allow or restrict must be provided")
 
-        if self._action not in ["restrict", "allow"]:
-            raise ValueError("Invalid action. Must be 'restrict' or 'allow'.")
+        if self._allow and self._restrict:
+            raise ValueError("Only one of allow or restrict can be provided")
+
+        if self._allow:
+            self._action = "allow"
+            self._modules = self._allow
+        elif self._restrict:
+            self._action = "restrict"
+            self._modules = self._restrict
 
     def check_syntax(self, code: Optional[str] = None, return_tree: bool = False):
         """
@@ -180,10 +180,10 @@ class Restrictor(ast.NodeVisitor):
         :raises RestrictedBuiltInsError: If the name is not allowed based on the action.
         """
         if self._action == "restrict":
-            if node.id in self._builtins:
+            if node.id in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         elif self._action == "allow":
-            if node.id not in self._builtins:
+            if node.id not in self._modules:
                 raise RestrictedBuiltInsError(f"'{node.id}' is not allowed")
         self.generic_visit(node)
 
