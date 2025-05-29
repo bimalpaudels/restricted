@@ -3,10 +3,11 @@ from typing import Optional, List
 
 
 def execute_restricted(
-        code:str,
-        modules: Optional[List[str]] = None,
-        builtins: Optional[List[str]] = None,
-        action: Optional[str] = None,
+    code: str,
+    method: str,
+    modules: Optional[List[str]] = None,
+    builtins: Optional[List[str]] = None,
+    action: Optional[str] = None,
 ):
     """
     Parses and optionally validates the given Python code before executing it in a restricted environment.
@@ -24,4 +25,4 @@ def execute_restricted(
 
     restrictor = Restrictor(modules=modules, builtins=builtins, action=action)
     executor = Executor(code, restrictor=restrictor)
-    return executor.execute(method="uv")
+    return executor.execute(method=method)

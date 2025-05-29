@@ -223,7 +223,7 @@ class Executor:
             f.write(self.code)  # type: ignore
         return script_file_path
 
-    def execute(self, code: Optional[str] = None, method: str = "direct"):
+    def execute(self, method: str, code: Optional[str] = None):
         if code is None and self.code is None:
             raise ValueError(
                 "Code needs to be provided, either during initialization or when executing."
@@ -232,7 +232,7 @@ class Executor:
         if code is not None:  # If code is provided, override the code from init
             self.code = self.restrictor.restrict(code)
 
-        if method not in ["direct", "subprocess", "uv"]:
+        if method is None or method not in ["direct", "subprocess", "uv"]:
             raise ValueError("Invalid method. Must be 'direct', 'subprocess', or 'uv'.")
 
         if method == "direct":
